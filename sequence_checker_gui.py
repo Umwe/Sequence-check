@@ -77,11 +77,14 @@ class SequenceCheckerGUI:
         results_label = ttk.Label(tab, text="Results:", font=("Helvetica", 12))
         results_label.pack(anchor="w", padx=20, pady=(10, 0))
 
-        columns = ("CDR_DATE", "NODE", "MISSINGSEQ")
+        columns = ("#", "CDR_DATE", "NODE", "MISSINGSEQ")
         results_table = ttk.Treeview(tab, columns=columns, show="headings", height=17)
         results_table.pack(fill="both", padx=20, pady=(0, 10))
 
         # Customize column widths and alignments
+        results_table.heading("#", text="#")
+        results_table.column("#", width=50, anchor="center")
+
         results_table.heading("CDR_DATE", text="CDR_DATE")
         results_table.column("CDR_DATE", width=100, anchor="w")
 
@@ -119,9 +122,9 @@ class SequenceCheckerGUI:
             tab = self.tabs[group]
             results_table = tab.widgets["results_table"]
 
-            # Insert data into the table
-            for record in sample_records:
-                results_table.insert("", "end", values=record)
+            # Insert data into the table with auto-incrementing index
+            for idx, record in enumerate(sample_records, start=1):
+                results_table.insert("", "end", values=(idx, *record))
 
     def export_results(self, group):
         tab = self.tabs[group]
@@ -139,7 +142,7 @@ class SequenceCheckerGUI:
             data.append(results_table.item(row)["values"])
 
         # Convert data to a DataFrame
-        columns = ["CDR_DATE", "NODE", "MISSINGSEQ"]
+        columns = ["#", "CDR_DATE", "NODE", "MISSINGSEQ"]
         df = pd.DataFrame(data, columns=columns)
 
         # Retrieve start and end dates
@@ -227,5 +230,3 @@ class SequenceCheckerGUI:
     def cancel_all(self):
         for tab in self.tabs.values():
             self.clear_fields(tab)
-
-
