@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter.filedialog import asksaveasfilename
 from tkcalendar import DateEntry
 from datetime import datetime, timedelta
 import threading
 import time
+import pandas as pd
 
 
 class SequenceCheckerGUI:
@@ -29,6 +31,9 @@ class SequenceCheckerGUI:
         self.create_tabs()
         self.create_footer()
         self.loading_tabs = {}  # Track which tabs are loading
+
+        # Populate the GGSN tab with records
+        self.populate_table("GGSN")
 
     def create_tabs(self):
         self.tab_control = ttk.Notebook(self.root)
@@ -72,21 +77,19 @@ class SequenceCheckerGUI:
         results_label = ttk.Label(tab, text="Results:", font=("Helvetica", 12))
         results_label.pack(anchor="w", padx=20, pady=(10, 0))
 
-        # Results Table
         columns = ("CDR_DATE", "NODE", "MISSINGSEQ")
         results_table = ttk.Treeview(tab, columns=columns, show="headings", height=17)
         results_table.pack(fill="both", padx=20, pady=(0, 10))
 
         # Customize column widths and alignments
         results_table.heading("CDR_DATE", text="CDR_DATE")
-        results_table.column("CDR_DATE", width=20, anchor="center")
+        results_table.column("CDR_DATE", width=100, anchor="w")
 
         results_table.heading("NODE", text="NODE")
-        results_table.column("NODE", width=20, anchor="center")
+        results_table.column("NODE", width=100, anchor="w")
 
         results_table.heading("MISSINGSEQ", text="MISSINGSEQ")
-        results_table.column("MISSINGSEQ", width=400, anchor="center")
-
+        results_table.column("MISSINGSEQ", width=500, anchor="w")
 
         # Store widgets for later access
         tab.widgets = {
@@ -95,6 +98,74 @@ class SequenceCheckerGUI:
             "results_table": results_table,
             "elapsed_label": elapsed_label
         }
+
+    def populate_table(self, group):
+        # Sample records
+        sample_records = [
+            ("20240801", "NYOCC1A", "CONTENT_CDR_CHARGINGCDR-NYOCC1A-240801*02920*"),
+            ("20240801", "NYOCC1B", "CONTENT_CDR_CHARGINGCDR-NYOCC1B-240801*92407*"),
+            ("20240801", "RMOCC4", "CONTENT_CDR_CHARGINGCDR-RMOCC4-240801*52407*"),
+            ("20240802", "NYOCC3", "CONTENT_CDR_CHARGINGCDR-NYOCC3-240802*52407*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*22407*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*24070*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*24071*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*24072*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*24073*"),
+            ("20240802", "RMOCC2A", "CONTENT_CDR_CHARGINGCDR-RMOCC2A-240802*24074*")
+        ]
+
+        # Find the corresponding tab and table
+        if group in self.tabs:
+            tab = self.tabs[group]
+            results_table = tab.widgets["results_table"]
+
+            # Insert data into the table
+            for record in sample_records:
+                results_table.insert("", "end", values=record)
+
+    def export_results(self, group):
+        tab = self.tabs[group]
+        results_table = tab.widgets["results_table"]
+
+        # Check if there are any records in the table
+        rows = results_table.get_children()
+        if not rows:
+            messagebox.showwarning("Warning", f"No results to export for {group}.")
+            return
+
+        # Retrieve data from the results table
+        data = []
+        for row in rows:
+            data.append(results_table.item(row)["values"])
+
+        # Convert data to a DataFrame
+        columns = ["CDR_DATE", "NODE", "MISSINGSEQ"]
+        df = pd.DataFrame(data, columns=columns)
+
+        # Retrieve start and end dates
+        start_date = tab.widgets["start_date"].get()
+        end_date = tab.widgets["end_date"].get()
+
+        # Format the filename
+        filename = f"{group}_MissingSequence_{start_date}_{end_date}.xlsx"
+
+        # Ask the user for a file save location
+        file_path = asksaveasfilename(
+            initialfile=filename,
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            title="Save Results as Excel File"
+        )
+
+        if not file_path:  # User canceled the save dialog
+            return
+
+        try:
+            # Save DataFrame to an Excel file
+            df.to_excel(file_path, index=False, engine="openpyxl")
+            messagebox.showinfo("Export Success", f"Results exported successfully to {file_path}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"An error occurred while exporting: {e}")
 
     def create_footer(self):
         footer_frame = ttk.Frame(self.root)
@@ -146,16 +217,6 @@ class SequenceCheckerGUI:
         time.sleep(10)  # Simulating backend delay
         self.loading_tabs[group] = False
 
-    def export_results(self, group):
-        tab = self.tabs[group]
-        results_table = tab.widgets["results_table"]
-
-        if not results_table.get_children():
-            messagebox.showwarning("Warning", f"No results to export for {group}.")
-            return
-
-        messagebox.showinfo("Export", f"Results for {group} exported successfully (placeholder).")
-
     def clear_fields(self, tab):
         tab.widgets["start_date"].set_date(datetime.now())
         tab.widgets["end_date"].set_date(datetime.now())
@@ -166,3 +227,5 @@ class SequenceCheckerGUI:
     def cancel_all(self):
         for tab in self.tabs.values():
             self.clear_fields(tab)
+
+
